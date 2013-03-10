@@ -5,7 +5,7 @@ use feature 'switch';
 $| = 1;
 
 my $sep = "---------------------------------------------------------------\n";
-my $less_prompt = "Would you like to view in LESS? [y/n]: ";
+my $less_prompt = "Would you like to view using LESS? [y/n]: ";
 
 my @prompts = ( 
     "Holy holes in donuts, Batman! Let's baconate: ",
@@ -25,8 +25,9 @@ my @prompts = (
 
 
 my @spinner = qw(/ | \ -);
-my $curr_spinner = 0;
-our %actors;
+state $curr_spinner = 0;
+state $counter = 0;
+our %actors; 
 our %movies;
 
 
@@ -70,6 +71,18 @@ print "bam! [$end_time \bs]\n";
 ###  USER INTERFACE  ### 
 ########################
 
+## Only file handling will be with LESS, so we can turn off the safety helmet.
+no autodie;
+$SIG{PIPE} = 'IGNORE';
+
+sub spin_loader {
+    $counter = ($counter+1)%50000;       
+    if ($counter == 0) {  
+        $curr_spinner = ($curr_spinner+1)%4; 
+        print "$spinner[$curr_spinner]\b";
+    } 
+}
+
 sub match_all {
     $actor = shift;
     for $key (@_) {
@@ -96,32 +109,44 @@ while(<STDIN>) {
     my @keywords = ($_ =~ /[^,\s]+/g);
     my @results;
 
+    print "Searching...";
     for $actor (keys %movies) {
-        push @results, $actor if match_all($actor, @keywords);
-    }
+        push @results, $actor if match_all($actor, @keywords);       
+        spin_loader;
+    } 
 
     my $num_results = scalar @results;
     my $end = time - $start_time;
+    print "bam! [$end \bs]\n";
+
     given ($num_results) {
-        when (0) { print "Oops! No suggestions found. You're on your own. [$end \bs]\n"; }
-        when (1) { print "I hope you meant $results[0]! [$end \bs]\n";
+        when (0) { print "Oops! No suggestions found. You're on your own.\n"; }
+        when (1) { print "I hope you meant $results[0]!\n";
                    search($results[0]); } 
-        default { 
-            if ($num_results > 40) {
-                print "Number of results is large ($num_results).\n$less_prompt";
-                while(<STDIN>) {
-                    last if /^(y|n)/;
-                    print $less_prompt;
-                } if (/^y/) {
-                    open LESS, '|-', 'less'; 
-                    select LESS;
-                }
-            }
-            
+        when ([2..40]) { 
             print "Did you mean...\n";
-            print "$_\n" for sort @results;
-            
-            if ($num_results > 20 and /^y/) {
+            print "? $_\n" for sort @results;
+            print "($num_results partial matches; [$end \bs])\n";
+        }
+        default { 
+            # More than 40 results; give users the option to pipe the results through less.
+            print "Number of results is large ($num_results).\n$less_prompt";
+            while(<STDIN>) {
+                last if /^(y|n)/;
+                print $less_prompt;
+            } 
+
+            if (/^y/) {
+                open LESS, '|-', 'less'; 
+                select LESS;
+            }
+
+            print "Did you mean...\n";
+            print "? $_\n" for sort @results;
+            print "($num_results partial matches; [$end \bs])\n";
+
+
+            if (/^y/) {
                 select STDOUT;
                 close LESS;
             }
@@ -176,7 +201,7 @@ sub search {
     
     # Iteratively go through each actor set, check each actor, and add new actors to the next queue.
     while(@current_queue) {
-        print "bacon=$bacon_number\n";
+        print "bacon number = $bacon_number? ";
 
         $queue_index = -1; # current actor_set
         foreach $actor_set (@current_queue) {
@@ -185,9 +210,13 @@ sub search {
             $actor_index = 2; # current actor
             foreach $actor (@$actor_set[3..@$actor_set-1]) { 
                 $actor_index += 1;
+                spin_loader;
 
                 ### ACTOR FOUND ###
                 if ($actor eq $target) {
+                    my $end_time = int(time - $start_time);
+                    print "YES\nFound! [$end_time \bs]\n";
+
                     my $temp = $bacon_number;
                     my $current_actor = $actor;
 
@@ -210,14 +239,14 @@ sub search {
                         $temp -= 1;
                     }
 
-                    my $end_time = int(time - $start_time);
-                    print "Wow! A bacon number of $bacon_number. How about that? [$end_time \bs]\n";
+                    print "Wow! A bacon number of $bacon_number. How about that?\n";
                     return;
                 } ### END ACTOR FOUND ###
                 
                 $movie_index = -1;  # current movie
                 foreach $movie (@{$movies{$actor}}) {
                     $movie_index += 1;
+                    spin_loader;
                     
                     next if exists $visited_movies{$movie};
                     $visited_movies{$movie} = 1;
@@ -244,8 +273,9 @@ sub search {
         @current_queue = @next_queue;
         @next_queue = [];
         $bacon_number += 1;
+        print "NO\n";
     }
 
     my $end_time = int(time - $start_time);
-    print "Bacon Number not found. Sad day. [$end_time \bs]\n";
+    print "Bacon Number not found. Are you a wizard? [$end_time \bs]\n";
 }
