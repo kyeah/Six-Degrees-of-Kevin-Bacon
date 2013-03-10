@@ -97,15 +97,30 @@ while(<STDIN>) {
         push @results, $actor if match_all($actor, @keywords);
     }
 
+    my $num_results = scalar @results;
     my $end = time - $start_time;
-    given (scalar @results) {
+    given ($num_results) {
         when (0) { print "Oops! No suggestions found. You're on your own. [$end \bs]\n"; }
         when (1) { print "I hope you meant $results[0]! [$end \bs]\n";
                    search($results[0]); } 
         default { 
-            print "Did you mean...";
-            print "\n$_" for sort @results;
-            print "[$end \bs]\n";
+            if ($num_results > 40) {
+                print "Number of results is large ($num_results)\nWould you like to view in LESS? [y/n]: ";
+                while(<STDIN>) {
+                    last if /^(y|n)/;
+                } if (/^y/) {
+                    open LESS, '|-', 'less'; 
+                    select LESS;
+                }
+            }
+            
+            print "Did you mean...\n";
+            print "$_\n" for sort @results;
+            
+            if ($num_results > 20 and /^y/) {
+                select STDOUT;
+                close LESS;
+            }
         }
     }
 
