@@ -46,10 +46,11 @@ foreach $arg (@ARGV)
     while(<$database>) {
         
         # A fine line between performance and satisfying spinny
-        if($. % 15000 == 0) {  
+        if($counter == 15000){ 
+            $counter = 0;
             $curr_spinner = ($curr_spinner+1)%4; 
             print "$spinner[$curr_spinner]\b";
-        }
+        } $counter += 1;
 
         # Match movie; use //p to get actor (prematch) and details (postmatch)
         next unless /\t+ (?<movie>.* \s \(\d{4} (?:\/[IVXL]+)? \))/px;
@@ -76,11 +77,11 @@ no autodie;
 $SIG{PIPE} = 'IGNORE';
 
 sub spin_loader {
-    $counter = ($counter+1)%50000;       
-    if ($counter == 0) {  
+    if ($counter == 50000) { 
+        $counter = 0;
         $curr_spinner = ($curr_spinner+1)%4; 
         print "$spinner[$curr_spinner]\b";
-    } 
+    } $counter += 1;
 }
 
 sub match_all {
