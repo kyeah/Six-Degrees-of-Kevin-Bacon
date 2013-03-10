@@ -5,6 +5,8 @@ use feature 'switch';
 $| = 1;
 
 my $sep = "---------------------------------------------------------------\n";
+my $less_prompt = "Would you like to view in LESS? [y/n]: ";
+
 my @prompts = ( 
     "Holy holes in donuts, Batman! Let's baconate: ",
     "Jinkies! I can't believe I've never tried to baconate: ",
@@ -20,6 +22,7 @@ my @prompts = (
     "Two actors diverged in a wood, and I,
                  I baconated the one less traveled by: ",
     "bacon: " );
+
 
 my @spinner = qw(/ | \ -);
 my $curr_spinner = 0;
@@ -105,9 +108,10 @@ while(<STDIN>) {
                    search($results[0]); } 
         default { 
             if ($num_results > 40) {
-                print "Number of results is large ($num_results)\nWould you like to view in LESS? [y/n]: ";
+                print "Number of results is large ($num_results).\n$less_prompt";
                 while(<STDIN>) {
                     last if /^(y|n)/;
+                    print $less_prompt;
                 } if (/^y/) {
                     open LESS, '|-', 'less'; 
                     select LESS;
