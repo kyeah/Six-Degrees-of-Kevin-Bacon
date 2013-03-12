@@ -56,7 +56,7 @@ foreach $arg (@ARGV)
         next unless /\t+ (?<movie>.* \s \(\d{4} (?:\/[IVXL]+)? \))/px;
         my ($movie, $actor) = ($+{movie}, ${^PREMATCH});
         $current_actor = $actor if $actor;
-        next if substr($movie, 0, 1) eq '"' or ${^POSTMATCH} =~ /\( (?:VG|TV|V) \)/x;
+        next if substr($movie, 0, 1) eq '"' or ${^POSTMATCH} =~ /\((?:VG|TV|V|archive footage)\)/;
 
         # Add data to hashies
         $movies{$current_actor} //= [];
