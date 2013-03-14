@@ -17,19 +17,20 @@ my @prompts = (
     "Shall I compare thee to a bacon's day? : ",
     "I bite my bacon at thee, ",
     'While I nodded, nearly napping, suddenly there came a tapping;
-                 "Baconate me," said: ',
+                 "baconate me," said: ',
     "Better to reign in Hell, than to baconate: ",
     "Two actors diverged in a wood, and I,
                  I baconated the one less traveled by: ",
     "bacon: " );
 
-
 my @spinner = qw(/ | \ -);
 state $curr_spinner = 0;
 state $counter = 0;
+
+my $root = "Bacon, Kevin";
+my $last_name = "bacon";
 our %actors; 
 our %movies;
-
 
 ##########################
 ###  DATABASE LOADING  ### 
@@ -46,16 +47,17 @@ foreach $arg (@ARGV)
     while(<$database>) {
         
         # A fine line between performance and satisfying spinny
-        if($. % 15000 == 0) {  
+        if($counter == 15000){ 
+            $counter = 0;
             $curr_spinner = ($curr_spinner+1)%4; 
             print "$spinner[$curr_spinner]\b";
-        }
+        } $counter += 1;
 
         # Match movie; use //p to get actor (prematch) and details (postmatch)
         next unless /\t+ (?<movie>.* \s \(\d{4} (?:\/[IVXL]+)? \))/px;
         my ($movie, $actor) = ($+{movie}, ${^PREMATCH});
         $current_actor = $actor if $actor;
-        next if substr($movie, 0, 1) eq '"' or ${^POSTMATCH} =~ /\( (?:VG|TV|V) \)/x;
+        next if substr($movie, 0, 1) eq '"' or ${^POSTMATCH} =~ /\((?:VG|TV|V|archive footage)\)/;
 
         # Add data to hashies
         $movies{$current_actor} //= [];
@@ -65,22 +67,23 @@ foreach $arg (@ARGV)
     }
 }
 my $end_time = time - $start_time;
-print "bam! [$end_time \bs]\n";   
+print "bam! [$end_time \bs]\n"; 
+print $sep."Welcome to the Baconator!\nYou can change the root actor using 'root <actor>'. Hope you enjoy your stay!\n";
 
 ########################
 ###  USER INTERFACE  ### 
 ########################
 
-## Only file handling will be with LESS, so we can turn off the safety helmet.
+## Only file handling will be with LESS, so we can take off the safety helmets.
 no autodie;
 $SIG{PIPE} = 'IGNORE';
 
 sub spin_loader {
-    $counter = ($counter+1)%50000;       
-    if ($counter == 0) {  
+    if ($counter == 50000) { 
+        $counter = 0;
         $curr_spinner = ($curr_spinner+1)%4; 
         print "$spinner[$curr_spinner]\b";
-    } 
+    } $counter += 1;
 }
 
 sub match_all {
@@ -91,22 +94,51 @@ sub match_all {
     return 1;
 }
 
-print $prompts[rand @prompts];
+sub change_root {
+    $root = shift;
+    
+    $root =~ /(?<ln>[^\s,]*)/;
+    my $ln = lc $+{ln};
+    s/$last_name/$ln/ foreach (@prompts);
+    $last_name = $ln;
+    
+    print "Root changed to $root.\n";
+}
+
+print $sep.$prompts[rand @prompts];
 while(<STDIN>) {
     chomp;
     exit unless $_;
 
+    my @keywords = ($_ =~ /[^,\s]+/g);
+
+    # Check for root keyword
+    my $change_root;
+    if ($keywords[0] eq 'root') {
+        $_ =~ s/root\s*//;
+        $change_root = shift @keywords;
+        unless (@keywords) {
+            print "No root specified, dude.\n";
+            print $sep.$prompts[rand @prompts];
+            next;
+        }
+    }
+
     # User knows what they want - give it to 'em.
     if (exists $movies{$_}) {
-        print "HELL YEAH I CAN SEARCH THAT.\n";
-        search($_);
+        if ($change_root) {
+            change_root $_;
+        } else {
+            print "HELL YEAH I CAN SEARCH THAT.\n";
+            search($_);
+        }
+        
         print $sep.$prompts[rand @prompts];
         next;
     }
 
     # Lets help them out a bit.
     my $start_time = time;
-    my @keywords = ($_ =~ /[^,\s]+/g);
     my @results;
 
     print "Searching...";
@@ -121,9 +153,18 @@ while(<STDIN>) {
 
     given ($num_results) {
         when (0) { print "Oops! No suggestions found. You're on your own.\n"; }
-        when (1) { print "I hope you meant $results[0]!\n";
-                   search($results[0]); } 
-        when ([2..40]) { 
+        when (1) { 
+            if ($change_root) {
+                # 'root' keyword was used; Change the root actor!
+                change_root $results[0];
+            } else {
+                # 'root' not used; search for the bacon/root number.
+                print "I hope you meant $results[0]!\n";
+                search($results[0]); 
+            } 
+        }
+        when ([2..40]) {
+            # Moderate number of results found
             print "Did you mean...\n";
             print "? $_\n" for sort @results;
             print "($num_results partial matches; [$end \bs])\n";
@@ -174,11 +215,11 @@ while(<STDIN>) {
 sub search {
     my $start_time = time;
     my $target = shift;
-    my $bacon_number = 0;
+    my $root_number = 0;
 
     # Check for tom-foolery
-    if ($target eq "Bacon, Kevin") {
-        print "Kevin Bacon: level zero. [0s]\n";
+    if ($target eq $root) {
+        print "$root: level zero. [0s]\n";
         return;
     }
 
@@ -191,17 +232,17 @@ sub search {
         @next_queue        # The next tree level/depth of actors to be searched
         );       
 
-    $visited_actors{"Bacon, Kevin"} = 1;
+    $visited_actors{$root} = 1;
 
     @current_queue = ( ["I",  # Queue_index [index for the connection movie's array of actors, in the last queue]
                         "dont",             # Actor_index [index for the parent actor, in the last queue]
                         "matter",           # Movie_index [index for the connection movie, in %movies{parent_actor}]
-                        "Bacon, Kevin"] );  # All actors for the current connection movie; to be searched through    
+                        $root] );  # All actors for the current connection movie; to be searched through    
 
     
     # Iteratively go through each actor set, check each actor, and add new actors to the next queue.
     while(@current_queue) {
-        print "bacon number = $bacon_number? ";
+        print "${last_name} number = $root_number? ";
 
         $queue_index = -1; # current actor_set
         foreach $actor_set (@current_queue) {
@@ -217,7 +258,7 @@ sub search {
                     my $end_time = int(time - $start_time);
                     print "YES\nFound! [$end_time \bs]\n";
 
-                    my $temp = $bacon_number;
+                    my $temp = $root_number;
                     my $current_actor = $actor;
 
                     $queue_index = $actor_set->[0];
@@ -239,7 +280,7 @@ sub search {
                         $temp -= 1;
                     }
 
-                    print "Wow! A bacon number of $bacon_number. How about that?\n";
+                    print "Wow! A ${last_name} number of $root_number. How about that?\n";
                     return;
                 } ### END ACTOR FOUND ###
                 
@@ -268,14 +309,14 @@ sub search {
             }
         }
 
-        # Rotate Queues and increment bacon number
+        # Rotate Queues and increment ${last_name} number
         push @previous_queues, [@current_queue];
         @current_queue = @next_queue;
         @next_queue = [];
-        $bacon_number += 1;
+        $root_number += 1;
         print "NO\n";
     }
 
     my $end_time = int(time - $start_time);
-    print "Bacon Number not found. Are you a wizard? [$end_time \bs]\n";
+    print "$last_name Number not found. Are you a wizard? [$end_time \bs]\n";
 }
