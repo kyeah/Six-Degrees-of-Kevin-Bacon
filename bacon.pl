@@ -215,7 +215,7 @@ while(<STDIN>) {
 sub search {
     my $start_time = time;
     my $target = shift;
-    my $root_number = 0;
+    my $root_number = 0;  # Bacon Number
 
     # Check for tom-foolery
     if ($target eq $root) {
@@ -237,7 +237,7 @@ sub search {
     @current_queue = ( ["I",  # Queue_index [index for the connection movie's array of actors, in the last queue]
                         "dont",             # Actor_index [index for the parent actor, in the last queue]
                         "matter",           # Movie_index [index for the connection movie, in %movies{parent_actor}]
-                        $root] );  # All actors for the current connection movie; to be searched through    
+                        $root] );           # All actors for the current connection movie; to be searched through    
 
     
     # Iteratively go through each actor set, check each actor, and add new actors to the next queue.
@@ -309,7 +309,7 @@ sub search {
             }
         }
 
-        # Rotate Queues and increment ${last_name} number
+        # Rotate Queues and increment root number
         push @previous_queues, [@current_queue];
         @current_queue = @next_queue;
         @next_queue = [];
@@ -318,5 +318,5 @@ sub search {
     }
 
     my $end_time = int(time - $start_time);
-    print "$last_name Number not found. Are you a wizard? [$end_time \bs]\n";
+    print "$last_name number not found. Are you a wizard? [$end_time \bs]\n";
 }
