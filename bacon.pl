@@ -89,7 +89,7 @@ sub spin_loader {
 sub match_all {
     $actor = shift;
     for $key (@_) {
-        return 0 unless $actor =~ /\b$key\b/i;  # Doesn't account for foreign characters
+        return 0 unless $actor =~ /\b\Q$key\E\b/i;  # Doesn't account for foreign characters
     }
     return 1;
 }
